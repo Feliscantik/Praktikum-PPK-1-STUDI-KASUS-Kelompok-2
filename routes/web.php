@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Auth\LoginController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\TaskController; 
 use App\Http\Controllers\TaskListController;
 
 Route::middleware('auth')->group(function () {
@@ -55,3 +56,7 @@ Route::middleware(['auth', 'is_admin'])->prefix('admin')->name('admin.')->group(
     Route::post('/users', [UserController::class, 'store'])->name('users.store');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 });
+
+Route::get('/tasks', [TaskController::class, 'index'])->name('tasks.index');
+Route::post('/tasks', [TaskController::class, 'store'])->name('tasks.store');
+Route::delete('/tasks/{task}', [TaskController::class, 'destroy'])->name('tasks.destroy');
