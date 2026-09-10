@@ -1,62 +1,68 @@
-<<<<<<< HEAD
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# JARA — Advanced To-Do List
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Aplikasi web untuk mengelola tugas pribadi maupun tim secara efisien. JARA memungkinkan pengguna untuk membuat, mengelompokkan, dan mengatur tugas ke dalam berbagai proyek, menetapkan prioritas dan tenggat waktu, berkolaborasi dengan pengguna lain, serta memantau progres penyelesaian tugas secara real-time. Sistem ini juga dilengkapi dengan manajemen akun berbasis peran (Admin dan Pengguna).
 
-## About Laravel
+## User Story
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Sebagai pengguna (individu maupun tim), saya ingin mengelola tugas dan berkolaborasi dalam daftar proyek secara interaktif, sehingga saya dapat memantau progres pekerjaan, menetapkan prioritas, dan menyelesaikan tugas tepat waktu bersama tim.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Daftar SRS
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Kode | Deskripsi | Acceptance Criteria |
+|------|-----------|---------------------|
+| *SRS-001* | Manajemen & Otentikasi Pengguna oleh Admin | - Admin dapat menambah akun pengguna baru dengan input nama, email, dan password.<br> <br>- Admin dapat menghapus akun pengguna dari sistem.<br><br>- Pengguna yang telah ditambahkan dapat melakukan login.<br><br>- Akun yang dihapus oleh Admin langsung tidak bisa lagi melakukan login ke sistem. |
+| *SRS-002* | Pengelolaan Proyek / Daftar Tugas (List/Project Management) | - Pengguna dapat membuat daftar tugas (list/project) baru dan bertindak sebagai List Owner.<br><br>- Owner dapat mengubah nama/deskripsi daftar serta menghapus daftar beserta seluruh isinya.<br><br>- Halaman daftar menampilkan daftar anggota/kolaborator yang terhubung. |
+| *SRS-003* | Kolaborasi & Penambahan Anggota ke Dalam Daftar (Collaborator Invite) | - Owner daftar dapat menambahkan pengguna lain ke dalam daftar miliknya berdasarkan nama/email.<br><br>- Pengguna yang ditambahkan (Collaborator) dapat melihat dan mengakses daftar tersebut di dashboard mereka.<br><br>- Owner dapat menghapus akses Collaborator dari daftar tugas kapan saja. |
+| *SRS-004* | Pembuatan & Pengelolaan Item Tugas (Task Item) | - Owner dan Collaborator dapat membuat item tugas baru di dalam daftar.<br><br>- Setiap tugas wajib memiliki judul dan deskripsi opsional.<br><br>- Tugas dapat diperbarui detailnya atau dihapus oleh Owner dan Collaborator. |
+| *SRS-005* | Pengaturan Prioritas & Tenggat Waktu (Priority & Due Date) | - Pengguna dapat menentukan prioritas tugas (opsi: Tinggi / High, Sedang / Medium, Rendah / Low).<br><br>- Pengguna dapat menentukan tenggat waktu penyelesaian (Due Date & Time).<br><br>- Tugas yang mendekati atau melewati tenggat waktu menampilkan penanda khusus (indicator highlight). |
+| *SRS-006* | Penyelesaian Tugas & Penyaringan (Task Completion & Filter) | - Pengguna dapat menandai tugas sebagai "Selesai" (Completed) atau mengembalikannya ke "Belum Selesai".<br><br>- Tugas yang selesai diberi penanda visual (misal: dicoret atau centang).<br><br>- Tersedia fitur penyaringan (filter) untuk menampilkan tugas berdasarkan status (Semua/Selesai/Belum), Prioritas, dan Tenggat Waktu. |
+| *SRS-007* | Pemantauan Progres Penyelesaian Tugas (Progress Tracking) | - Setiap daftar menampilkan indikator progres (misal: progress bar atau persentase % real-time).<br><br>- Persentase dihitung secara otomatis: (Jumlah Tugas Selesai / Total Tugas) * 100%.<br><br>- Grafik/persentase progres langsung diperbarui begitu ada tugas yang ditandai selesai atau ditambahkan. |
 
-## Learning Laravel
+## Menjalankan Proyek
+## Menjalankan Proyek
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Pastikan telah menginstal **PHP** (>= 8.2), **Composer**, **Node.js**, dan server database **MySQL/XAMPP** di komputer Anda.
 
 ```bash
-composer require laravel/boost --dev
+# 1. Clone repository
+git clone [https://github.com/Feliscantik/Praktikum-PPK-1-STUDI-KASUS-Kelompok-2.git](https://github.com/Feliscantik/Praktikum-PPK-1-STUDI-KASUS-Kelompok-2.git)
+cd Praktikum-PPK-1-STUDI-KASUS-Kelompok-2
 
-php artisan boost:install
-```
+# 2. Install dependensi PHP & Node.js
+composer install
+npm install
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+# 3. Salin file lingkungan (.env) & generate app key
+cp .env.example .env
+php artisan key:generate
 
-## Contributing
+# 4. Konfigurasi database di file .env
+# DB_DATABASE=jara_db
+# DB_USERNAME=root
+# DB_PASSWORD=
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+# 5. Jalankan migrasi database & seeder
+php artisan migrate --seed
 
-## Code of Conduct
+# 6. Jalankan server lokal
+php artisan serve
+npm run dev
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+jara-app/
+├── app/
+│   ├── Http/Controllers/   # Logika bisnis (ProjectController, TaskController)
+│   └── Models/             # Model Eloquent (User, Project, Task)
+├── database/
+│   ├── migrations/         # Skema tabel database
+│   └── seeders/            # Data awal/dummy database
+├── public/                 # Asset publik terkompilasi
+├── resources/
+│   └── views/              # Tampilan UI (Blade templates)
+├── routes/
+│   └── web.php             # Deklarasi route aplikasi
+├── .env.example            # Template konfigurasi environment
+├── .gitignore              # Daftar file yang diabaikan oleh Git
+├── composer.json           # Dependensi PHP/Laravel
+├── package.json            # Dependensi JavaScript/NPM
+└── README.md               # Dokumentasi proyek
 
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
-=======
-# Praktikum-PPK-1-STUDI-KASUS-Kelompok-2
->>>>>>> 780786ef0e427f3c32d76d5bb18cab11cb1cecbe
