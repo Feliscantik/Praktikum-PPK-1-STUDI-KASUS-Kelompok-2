@@ -156,11 +156,20 @@ function updateProgress(progress) {
                                     @endif
                                 </td>
                                 <td>
-                                    <form action="{{ route('tasks.destroy', $task->id) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus tugas ini?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-danger">Hapus</button>
-                                    </form>
+                                    <div class="d-flex gap-1">
+                                        <button type="button" class="btn btn-sm btn-warning btn-edit" 
+                                                data-id="{{ $task->id }}" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#editTaskModal">
+                                            Edit
+                                        </button>
+
+                                        <form action="{{ route('tasks.destroy', $task->id) }}" method="POST" onsubmit="return confirm('Yakin ingin menghapus tugas ini?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm btn-danger">Hapus</button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         @empty
@@ -214,6 +223,69 @@ function updateProgress(progress) {
         </div>
     </div>
 
+    <div class="modal fade" id="editTaskModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form id="editTaskForm" method="POST">
+                @csrf
+                @method('PUT')
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Tugas (SRS-004)</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Judul Tugas <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="edit_title" name="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Deskripsi (Opsional)</label>
+                            <textarea class="form-control" id="edit_description" name="description" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Prioritas (SRS-005)</label>
+                            <select class="form-select" id="edit_priority" name="priority">
+                                <option value="Low">Rendah (Low)</option>
+                                <option value="Medium">Sedang (Medium)</option>
+                                <option value="High">Tinggi (High)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Tenggat Waktu / Due Date (SRS-005)</label>
+                            <input type="datetime-local" class="form-control" id="edit_due_date" name="due_date" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+
+        document.querySelectorAll('.btn-edit').forEach(button => {
+            button.addEventListener('click', function () {
+                let taskId = this.getAttribute('data-id');
+                fetch(`/tasks/${taskId}/edit`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('edit_title').value = data.title;
+                        document.getElementById('edit_description').value = data.description || '';
+                        document.getElementById('edit_priority').value = data.priority;
+                    
+                        if(data.due_date) {
+                            let formattedDate = data.due_date.replace(' ', 'T');
+                            document.getElementById('edit_due_date').value = formattedDate;
+                        }
+                        
+                        document.getElementById('editTaskForm').action = `/tasks/${taskId}`;
+                    });
+            });
+        });
+    </script>
 </body>
 </html>

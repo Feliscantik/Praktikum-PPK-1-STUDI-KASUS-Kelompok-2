@@ -154,4 +154,28 @@ class TaskController
         $task->delete();
         return redirect()->back()->with('success', 'Tugas berhasil dihapus!');
     }
+
+    public function edit(Task $task)
+    {
+        return response()->json($task);
+    }
+
+    public function update(Request $request, Task $task)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'priority' => 'required|in:Low,Medium,High',
+            'due_date' => 'required|date',
+        ]);
+
+        $task->update([
+            'title' => $request->title,
+            'description' => $request->description,
+            'priority' => $request->priority,
+            'due_date' => $request->due_date,
+        ]);
+
+        return redirect()->route('tasks.index')->with('success', 'Tugas berhasil diperbarui!');
+    }
 }
