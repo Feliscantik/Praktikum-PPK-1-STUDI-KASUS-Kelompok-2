@@ -29,4 +29,14 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function ownedLists()
+    {
+        return $this->hasMany(TaskList::class, 'owner_id');
+    }
+
+    public function listMemberships()
+    {
+        return $this->hasMany(ListMember::class);
+    }
 }
