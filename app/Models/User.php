@@ -30,6 +30,16 @@ class User extends Authenticatable
         ];
     }
 
+    public function ownedLists()
+    {
+        return $this->hasMany(TaskList::class, 'owner_id');
+    }
+
+    public function listMemberships()
+    {
+        return $this->hasMany(ListMember::class);
+    }
+}
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
