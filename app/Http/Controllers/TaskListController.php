@@ -2,143 +2,166 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\TaskListRequest;
+use App\Models\Task;
 use App\Models\TaskList;
-use Illuminate\Http\Request;
-use App\Models\ListMember;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 class TaskListController extends Controller
 {
-    // Menampilkan semua list milik user
-    public function index()
+    /**
+     * SRS-002 & SRS-003: daftar milik sendiri + daftar yang dibagikan.
+     */
+    public function index(Request $request): View
     {
-        $lists = TaskList::where('owner_id', auth()->id())
-            ->with('members.user')
+        $user = $request->user();
+
+        $ownedLists = $user->ownedLists()
+            ->with('collaborators')
+            ->withCount([
+                'tasks',
+                'tasks as completed_tasks_count' => fn ($q) => $q->where('is_completed', true),
+            ])
+            ->latest()
             ->get();
 
-        return view('lists.index', compact('lists'));
+        $sharedLists = $user->sharedLists()
+            ->with('owner')
+            ->withCount([
+                'tasks',
+                'tasks as completed_tasks_count' => fn ($q) => $q->where('is_completed', true),
+            ])
+            ->latest('task_lists.created_at')
+            ->get();
+
+        return view('lists.index', compact('ownedLists', 'sharedLists'));
     }
 
-    // Form membuat list
-    public function create()
+    /** SRS-002 */
+    public function create(): View
     {
         return view('lists.create');
     }
 
-    // Menyimpan list baru
-    public function store(Request $request)
+    /** SRS-002: pembuat daftar otomatis menjadi List Owner. */
+    public function store(TaskListRequest $request): RedirectResponse
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-        ]);
-
-        TaskList::create([
-            'owner_id' => auth()->id(),
-            'name' => $request->name,
-            'description' => $request->description,
+        $list = TaskList::create([
+            'owner_id' => $request->user()->id,
+            'name' => $request->validated('name'),
+            'description' => $request->validated('description'),
         ]);
 
         return redirect()
-            ->route('lists.index')
-            ->with('success', 'List berhasil dibuat.');
+            ->route('lists.show', $list)
+            ->with('success', 'Daftar berhasil dibuat.');
     }
 
-    // Menampilkan detail list
-    public function show(TaskList $taskList)
+    /**
+     * SRS-002, SRS-006, SRS-007: detail daftar + filter tugas + progres.
+     */
+    public function show(Request $request, TaskList $taskList): View
     {
-        if ($taskList->owner_id !== auth()->id()) {
-            abort(403);
+        $this->authorize('view', $taskList);
+
+        $taskList->load('owner', 'collaborators');
+
+        $query = $taskList->tasks()->with('user');
+
+        // SRS-006: filter status
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('is_completed', $request->status === 'completed');
         }
 
-        $taskList->load('owner', 'members.user');
+        // SRS-006: filter prioritas
+        if ($request->filled('priority') && in_array($request->priority, Task::PRIORITIES, true)) {
+            $query->where('priority', $request->priority);
+        }
 
-        return view('lists.show', compact('taskList'));
+        // SRS-006: filter tenggat waktu
+        match ($request->input('due')) {
+            'overdue' => $query->whereNotNull('due_date')
+                ->where('due_date', '<', now())
+                ->where('is_completed', false),
+            'today' => $query->whereDate('due_date', today()),
+            'week' => $query->whereBetween('due_date', [now(), now()->addWeek()]),
+            default => null,
+        };
+
+        $tasks = $query
+            ->orderBy('is_completed')
+            ->orderByRaw('due_date IS NULL, due_date ASC')
+            ->get();
+
+        // SRS-007: progres selalu dihitung dari seluruh tugas, bukan hasil filter.
+        $progress = $taskList->progress();
+
+        return view('lists.show', compact('taskList', 'tasks', 'progress'));
     }
 
-    // Edit list
-    public function update(Request $request, TaskList $taskList)
+    /** SRS-002 */
+    public function update(TaskListRequest $request, TaskList $taskList): RedirectResponse
     {
-        if ($taskList->owner_id !== auth()->id()) {
-            abort(403);
-        }
+        $this->authorize('update', $taskList);
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-        ]);
+        $taskList->update($request->validated());
 
-        $taskList->update([
-            'name' => $request->name,
-            'description' => $request->description,
-        ]);
-
-        return back()->with('success', 'List berhasil diperbarui.');
+        return back()->with('success', 'Daftar berhasil diperbarui.');
     }
 
-    // Hapus list
-    public function destroy(TaskList $taskList)
+    /** SRS-002 & SRS-003: menghapus daftar beserta tugas dan collaborator-nya */
+    public function destroy(TaskList $taskList): RedirectResponse
     {
-        if ($taskList->owner_id !== auth()->id()) {
-            abort(403);
-        }
+        $this->authorize('delete', $taskList);
 
-        $taskList->delete();
+        DB::transaction(function () use ($taskList) {
+            $taskList->delete();
+        });
 
         return redirect()
             ->route('lists.index')
-            ->with('success', 'List berhasil dihapus.');
+            ->with('success', 'Daftar beserta seluruh tugas dan keanggotaan collaborator berhasil dihapus.');
     }
 
-    public function addMember(Request $request, TaskList $taskList)
+    /** SRS-003: menambah collaborator berdasarkan email. */
+    public function addMember(Request $request, TaskList $taskList): RedirectResponse
     {
-        // Hanya Owner yang boleh menambahkan collaborator
-        if ($taskList->owner_id !== auth()->id()) {
-            abort(403);
-        }
+        $this->authorize('manageMembers', $taskList);
 
         $request->validate([
-            'email' => 'required|email',
+            'email' => ['required', 'email'],
         ]);
 
-        // Cari user berdasarkan email
         $user = User::where('email', $request->email)->first();
 
-        if (!$user) {
-            return back()->with('error', 'User tidak ditemukan.');
+        if (! $user) {
+            return back()->with('error', 'Pengguna dengan email tersebut tidak ditemukan.');
         }
 
-        // Owner tidak perlu ditambahkan sebagai collaborator
         if ($user->id === $taskList->owner_id) {
-            return back()->with('error', 'User tersebut adalah Owner list.');
+            return back()->with('error', 'Pengguna tersebut adalah Owner daftar ini.');
         }
 
-        // Tambahkan collaborator
-        ListMember::firstOrCreate([
-            'task_list_id' => $taskList->id,
-            'user_id' => $user->id,
-        ]);
+        if ($taskList->collaborators()->whereKey($user->id)->exists()) {
+            return back()->with('error', 'Pengguna tersebut sudah menjadi collaborator.');
+        }
 
-        return back()->with(
-            'success',
-            'Collaborator berhasil ditambahkan.'
-        );
+        $taskList->collaborators()->attach($user->id);
+
+        return back()->with('success', "{$user->name} berhasil ditambahkan sebagai collaborator.");
     }
 
-    public function removeMember(TaskList $taskList, User $user)
+    /** SRS-003 */
+    public function removeMember(TaskList $taskList, User $user): RedirectResponse
     {
-        // Hanya Owner yang boleh menghapus collaborator
-        if ($taskList->owner_id !== auth()->id()) {
-            abort(403);
-        }
+        $this->authorize('manageMembers', $taskList);
 
-        ListMember::where('task_list_id', $taskList->id)
-            ->where('user_id', $user->id)
-            ->delete();
+        $taskList->collaborators()->detach($user->id);
 
-        return back()->with(
-            'success',
-            'Collaborator berhasil dihapus.'
-        );
+        return back()->with('success', 'Akses collaborator berhasil dicabut.');
     }
 }
