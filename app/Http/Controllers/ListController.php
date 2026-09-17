@@ -6,12 +6,9 @@ use App\Models\TaskList;
 
 class ListController extends Controller
 {
-    /**
-     * SRS-007: Tampilkan detail list dengan progress
-     */
+
     public function show(TaskList $list)
     {
-        // Cek akses
         $userId = auth()->id();
         $hasAccess = $list->user_id === $userId 
             || $list->collaborators()->where('user_id', $userId)->exists();

@@ -6,6 +6,7 @@ use App\Models\TaskList;
 use Illuminate\Http\Request;
 use App\Models\ListMember;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class TaskListController extends Controller
 {
@@ -26,6 +27,9 @@ class TaskListController extends Controller
     }
 
     // Menyimpan list baru
+    // SRS-008: dibungkus transaksi supaya kalau ada langkah yang gagal
+    // (mis. gagal simpan data terkait di kemudian hari), tidak ada data
+    // list "setengah jadi" yang tersimpan.
     public function store(Request $request)
     {
         $request->validate([
@@ -33,11 +37,21 @@ class TaskListController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        TaskList::create([
-            'owner_id' => auth()->id(),
-            'name' => $request->name,
-            'description' => $request->description,
-        ]);
+        try {
+            DB::transaction(function () use ($request) {
+                TaskList::create([
+                    'owner_id' => auth()->id(),
+                    'name' => $request->name,
+                    'description' => $request->description,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()
+                ->withInput()
+                ->with('error', 'Gagal membuat list, silakan coba lagi.');
+        }
 
         return redirect()
             ->route('lists.index')
@@ -77,13 +91,32 @@ class TaskListController extends Controller
     }
 
     // Hapus list
+    // SRS-008: dibungkus transaksi. List baru benar-benar terhapus kalau
+    // semua data terkait (anggota/collaborator) juga berhasil dihapus.
+    // Kalau salah satu langkah gagal, semuanya di-rollback (list TIDAK
+    // terhapus) supaya tidak ada data anggota yang jadi yatim (orphan).
     public function destroy(TaskList $taskList)
     {
         if ($taskList->owner_id !== auth()->id()) {
             abort(403);
         }
 
-        $taskList->delete();
+        try {
+            DB::transaction(function () use ($taskList) {
+                // Hapus dulu anggota/collaborator list ini
+                ListMember::where('task_list_id', $taskList->id)->delete();
+
+                // Baru hapus list-nya
+                $taskList->delete();
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with(
+                'error',
+                'Gagal menghapus list, data tidak jadi dihapus. Silakan coba lagi.'
+            );
+        }
 
         return redirect()
             ->route('lists.index')

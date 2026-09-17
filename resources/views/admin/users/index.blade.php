@@ -1,101 +1,99 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <title>Manajemen Pengguna - JARA Admin</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-    <div class="container py-5">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3>Manajemen Pengguna (Admin)</h3>
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button class="btn btn-outline-secondary btn-sm">Logout</button>
-            </form>
-        </div>
+@extends('layouts.app')
 
-        @if (session('status'))
-            <div class="alert alert-success">{{ session('status') }}</div>
-        @endif
-        @if (session('error'))
-            <div class="alert alert-danger">{{ session('error') }}</div>
-        @endif
+@section('title', 'Manajemen Pengguna')
 
-        <div class="row">
-            <div class="col-md-5">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Tambah Akun Pengguna</h5>
-                        <form method="POST" action="{{ route('admin.users.store') }}">
-                            @csrf
-                            <div class="mb-2">
-                                <label class="form-label">Nama</label>
-                                <input type="text" name="name" class="form-control" value="{{ old('name') }}" required>
-                                @error('name') <small class="text-danger">{{ $message }}</small> @enderror
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label">Email</label>
-                                <input type="email" name="email" class="form-control" value="{{ old('email') }}" required>
-                                @error('email') <small class="text-danger">{{ $message }}</small> @enderror
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label">Password</label>
-                                <input type="password" name="password" class="form-control" required>
-                                @error('password') <small class="text-danger">{{ $message }}</small> @enderror
-                            </div>
-                            <div class="mb-2">
-                                <label class="form-label">Konfirmasi Password</label>
-                                <input type="password" name="password_confirmation" class="form-control" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Role</label>
-                                <select name="role" class="form-select">
-                                    <option value="user" selected>User</option>
-                                    <option value="admin">Admin</option>
-                                </select>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100">Tambah Akun</button>
-                        </form>
+@section('content')
+<h3 class="mb-4">Manajemen Pengguna (Admin)</h3>
+
+<div class="row g-4">
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Tambah Akun Pengguna</h5>
+                <form method="POST" action="{{ route('admin.users.store') }}">
+                    @csrf
+                    <div class="mb-2">
+                        <label class="form-label">Nama</label>
+                        <input type="text" name="name" class="form-control @error('name') is-invalid @enderror"
+                               value="{{ old('name') }}" required>
+                        @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                     </div>
-                </div>
+                    <div class="mb-2">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control @error('email') is-invalid @enderror"
+                               value="{{ old('email') }}" required>
+                        @error('email') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Password</label>
+                        <input type="password" name="password" class="form-control @error('password') is-invalid @enderror" required>
+                        @error('password') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Konfirmasi Password</label>
+                        <input type="password" name="password_confirmation" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select name="role" class="form-select">
+                            <option value="user" @selected(old('role', 'user') === 'user')>User</option>
+                            <option value="admin" @selected(old('role') === 'admin')>Admin</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Tambah Akun</button>
+                </form>
             </div>
+        </div>
+    </div>
 
-            <div class="col-md-7">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Daftar Pengguna</h5>
-                        <table class="table table-sm align-middle">
-                            <thead>
+    <div class="col-md-7">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Daftar Pengguna</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Nama</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Dibuat</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($users as $user)
                                 <tr>
-                                    <th>Nama</th>
-                                    <th>Email</th>
-                                    <th>Role</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($users as $user)
-                                    <tr>
-                                        <td>{{ $user->name }}</td>
-                                        <td>{{ $user->email }}</td>
-                                        <td><span class="badge bg-{{ $user->role === 'admin' ? 'dark' : 'secondary' }}">{{ $user->role }}</span></td>
-                                        <td class="text-end">
-                                            <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Hapus akun {{ $user->name }}?');">
+                                    <td>{{ $user->name }}</td>
+                                    <td>{{ $user->email }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ $user->isAdmin() ? 'dark' : 'secondary' }}">
+                                            {{ $user->role }}
+                                        </span>
+                                    </td>
+                                    <td class="small text-muted">{{ $user->created_at->format('d M Y') }}</td>
+                                    <td class="text-end">
+                                        @if ($user->id !== auth()->id())
+                                            <form method="POST" action="{{ route('admin.users.destroy', $user) }}"
+                                                  onsubmit="return confirm('Hapus akun {{ $user->email }}? Akun ini tidak akan bisa login lagi.')">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button class="btn btn-sm btn-outline-danger">Hapus</button>
                                             </form>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
+                                        @else
+                                            <span class="text-muted small">Akun Anda</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5" class="text-center text-muted">Belum ada pengguna.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
+                {{ $users->links() }}
             </div>
         </div>
     </div>
-</body>
-</html>
-
+</div>
+@endsection

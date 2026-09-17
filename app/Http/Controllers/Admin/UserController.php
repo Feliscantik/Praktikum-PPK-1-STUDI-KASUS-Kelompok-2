@@ -7,19 +7,20 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
 class UserController extends Controller
 {
+    /** SRS-001 */
     public function index(): View
     {
-        $users = User::orderBy('created_at', 'desc')->get();
+        $users = User::orderByDesc('created_at')->paginate(15);
 
         return view('admin.users.index', compact('users'));
     }
 
+    /** SRS-001: admin menambah akun pengguna baru. */
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -29,30 +30,27 @@ class UserController extends Controller
             'role' => ['required', 'in:admin,user'],
         ]);
 
-        User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => $validated['role'],
-        ]);
+        // Password otomatis di-hash oleh cast 'hashed' pada model User.
+        User::create($validated);
 
         return redirect()
             ->route('admin.users.index')
-            ->with('status', 'Akun pengguna baru berhasil ditambahkan.');
+            ->with('success', 'Akun pengguna baru berhasil ditambahkan.');
     }
 
+    /** SRS-001: akun yang dihapus otomatis tidak bisa login lagi. */
     public function destroy(User $user): RedirectResponse
     {
         if ($user->id === Auth::id()) {
             return redirect()
                 ->route('admin.users.index')
-                ->with('error', 'Tidak bisa menghapus akun yang sedang login.');
+                ->with('error', 'Anda tidak dapat menghapus akun yang sedang login.');
         }
 
         $user->delete();
 
         return redirect()
             ->route('admin.users.index')
-            ->with('status', 'Akun pengguna berhasil dihapus.');
+            ->with('success', 'Akun pengguna berhasil dihapus.');
     }
 }
