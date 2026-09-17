@@ -14,6 +14,10 @@ class LoginController extends Controller
         return view('auth.login');
     }
 
+    /**
+     * SRS-001: akun yang sudah dihapus Admin otomatis gagal login
+     * karena barisnya tidak lagi ada di tabel users.
+     */
     public function store(Request $request)
     {
         $credentials = $request->validate([
@@ -21,7 +25,6 @@ class LoginController extends Controller
             'password' => ['required'],
         ]);
 
-        // Akun yang sudah dihapus admin otomatis gagal login (baris usernya sudah tidak ada)
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             throw ValidationException::withMessages([
                 'email' => 'Email atau password salah, atau akun sudah tidak aktif.',
@@ -41,6 +44,6 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/login');
+        return redirect()->route('login');
     }
 }
