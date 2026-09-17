@@ -1,55 +1,66 @@
-{{-- SRS-006: Item tugas dengan toggle --}}
-<div class="task-item border rounded-lg p-4 mb-3 flex items-start gap-3 
-            {{ $task->is_completed ? 'bg-gray-100 opacity-75' : 'bg-white' }}"
+{{-- SRS-004, SRS-005, SRS-006 --}}
+<div class="list-group-item d-flex gap-3 align-items-start task-item {{ $task->is_completed ? 'bg-light opacity-75' : '' }}"
      data-task-id="{{ $task->id }}">
-    
-    {{-- Toggle Checkbox --}}
-    <form action="{{ route('tasks.toggle', $task) }}" method="POST" class="toggle-form">
+
+    {{-- SRS-006: tandai selesai / belum selesai --}}
+    <form action="{{ route('tasks.toggle', $task) }}" method="POST" class="toggle-form pt-1">
         @csrf
         @method('PATCH')
-        <button type="submit" 
-                class="w-6 h-6 rounded-full border-2 flex items-center justify-center
-                       {{ $task->is_completed 
-                            ? 'bg-green-500 border-green-500 text-white' 
-                            : 'border-gray-400 hover:border-green-500' }}">
-            @if($task->is_completed)
-                ✓
-            @endif
+        <button type="submit"
+                class="btn btn-sm rounded-circle {{ $task->is_completed ? 'btn-success' : 'btn-outline-secondary' }}"
+                style="width: 32px; height: 32px;"
+                title="{{ $task->is_completed ? 'Tandai belum selesai' : 'Tandai selesai' }}">
+            <span class="toggle-icon">{{ $task->is_completed ? '✓' : '' }}</span>
         </button>
     </form>
-    
-    {{-- Konten Tugas --}}
-    <div class="flex-1">
-        <h3 class="font-semibold {{ $task->is_completed ? 'line-through text-gray-500' : '' }}">
+
+    <div class="flex-grow-1">
+        <div class="task-title fw-semibold {{ $task->is_completed ? 'text-decoration-line-through text-muted' : '' }}">
             {{ $task->title }}
-        </h3>
-        
-        @if($task->description)
-            <p class="text-sm text-gray-600 mt-1">{{ $task->description }}</p>
+        </div>
+
+        @if ($task->description)
+            <div class="small text-muted">{{ $task->description }}</div>
         @endif
-        
-        <div class="flex gap-3 mt-2 text-xs">
-            {{-- Priority Badge --}}
-            <span class="px-2 py-1 rounded
-                @if($task->priority === 'high') bg-red-100 text-red-700
-                @elseif($task->priority === 'medium') bg-yellow-100 text-yellow-700
-                @else bg-green-100 text-green-700 @endif">
-                {{ ucfirst($task->priority) }}
-            </span>
-            
-            {{-- Due Date dengan highlight (SRS-005) --}}
-            @if($task->due_date)
-                <span class="px-2 py-1 rounded
-                    @if($task->is_completed) bg-gray-100 text-gray-600
-                    @elseif($task->due_date < now()) bg-red-100 text-red-700 font-bold
-                    @elseif($task->due_date < now()->addDay()) bg-orange-100 text-orange-700
-                    @else bg-blue-100 text-blue-700 @endif">
-                    📅 {{ $task->due_date->format('d M Y, H:i') }}
-                    @if(!$task->is_completed && $task->due_date < now())
-                        (Terlambat!)
+
+        <div class="d-flex flex-wrap gap-2 mt-2">
+            {{-- SRS-005: prioritas --}}
+            @php
+                $priorityBadge = ['high' => 'danger', 'medium' => 'warning text-dark', 'low' => 'info text-dark'][$task->priority];
+                $priorityLabel = ['high' => 'Tinggi', 'medium' => 'Sedang', 'low' => 'Rendah'][$task->priority];
+            @endphp
+            <span class="badge bg-{{ $priorityBadge }}">Prioritas: {{ $priorityLabel }}</span>
+
+            {{-- SRS-005: penanda tenggat waktu --}}
+            @if ($task->due_date)
+                @php
+                    $dueClass = match (true) {
+                        $task->is_completed => 'bg-secondary',
+                        $task->isOverdue() => 'bg-danger',
+                        $task->isDueSoon() => 'bg-warning text-dark',
+                        default => 'bg-light text-dark border',
+                    };
+                @endphp
+                <span class="badge {{ $dueClass }}">
+                    {{ $task->due_date->format('d M Y, H:i') }}
+                    @if ($task->isOverdue()) · Terlambat!
+                    @elseif ($task->isDueSoon()) · Segera jatuh tempo
                     @endif
                 </span>
             @endif
+
+            <span class="badge bg-light text-dark border">Dibuat oleh {{ $task->user?->name ?? '-' }}</span>
         </div>
+    </div>
+
+    {{-- SRS-004 --}}
+    <div class="d-flex gap-1">
+        <a href="{{ route('tasks.edit', $task) }}" class="btn btn-sm btn-outline-warning">Edit</a>
+        <form action="{{ route('tasks.destroy', $task) }}" method="POST"
+              onsubmit="return confirm('Hapus tugas ini?')">
+            @csrf
+            @method('DELETE')
+            <button type="submit" class="btn btn-sm btn-outline-danger">Hapus</button>
+        </form>
     </div>
 </div>

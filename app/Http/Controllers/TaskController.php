@@ -2,180 +2,163 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\TaskListRequest;
 use App\Models\Task;
 use App\Models\TaskList;
+use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 
-class TaskController extends Controller
+class TaskListController extends Controller
 {
     /**
-     * SRS-006: Menampilkan tugas dengan filter
-     * Filter berdasarkan: status, priority, due_date
+     * SRS-002 & SRS-003: daftar milik sendiri + daftar yang dibagikan.
      */
-    public function index(Request $request, TaskList $list)
+    public function index(Request $request): View
     {
-        // Pastikan user punya akses ke list ini
-        $this->authorizeAccess($list);
-        
-        $query = $list->tasks()->with('user');
-        
-        // Filter berdasarkan STATUS (SRS-006)
-        if ($request->filled('status')) {
-            if ($request->status === 'completed') {
-                $query->where('is_completed', true);
-            } elseif ($request->status === 'pending') {
-                $query->where('is_completed', false);
-            }
-            // 'all' = tidak perlu filter
+        $user = $request->user();
+
+        $ownedLists = $user->ownedLists()
+            ->with('collaborators')
+            ->withCount([
+                'tasks',
+                'tasks as completed_tasks_count' => fn ($q) => $q->where('is_completed', true),
+            ])
+            ->latest()
+            ->get();
+
+        $sharedLists = $user->sharedLists()
+            ->with('owner')
+            ->withCount([
+                'tasks',
+                'tasks as completed_tasks_count' => fn ($q) => $q->where('is_completed', true),
+            ])
+            ->latest('task_lists.created_at')
+            ->get();
+
+        return view('lists.index', compact('ownedLists', 'sharedLists'));
+    }
+
+    /** SRS-002 */
+    public function create(): View
+    {
+        return view('lists.create');
+    }
+
+    /** SRS-002: pembuat daftar otomatis menjadi List Owner. */
+    public function store(TaskListRequest $request): RedirectResponse
+    {
+        $list = TaskList::create([
+            'owner_id' => $request->user()->id,
+            'name' => $request->validated('name'),
+            'description' => $request->validated('description'),
+        ]);
+
+        return redirect()
+            ->route('lists.show', $list)
+            ->with('success', 'Daftar berhasil dibuat.');
+    }
+
+    /**
+     * SRS-002, SRS-006, SRS-007: detail daftar + filter tugas + progres.
+     */
+    public function show(Request $request, TaskList $taskList): View
+    {
+        $this->authorize('view', $taskList);
+
+        $taskList->load('owner', 'collaborators');
+
+        $query = $taskList->tasks()->with('user');
+
+        // SRS-006: filter status
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('is_completed', $request->status === 'completed');
         }
-        
-        // Filter berdasarkan PRIORITY (SRS-006)
-        if ($request->filled('priority')) {
+
+        // SRS-006: filter prioritas
+        if ($request->filled('priority') && in_array($request->priority, Task::PRIORITIES, true)) {
             $query->where('priority', $request->priority);
         }
-        
-        // Filter berdasarkan DUE DATE (SRS-006)
-        if ($request->filled('due')) {
-            if ($request->due === 'overdue') {
-                $query->where('due_date', '<', now())
-                      ->where('is_completed', false);
-            } elseif ($request->due === 'today') {
-                $query->whereDate('due_date', today());
-            } elseif ($request->due === 'week') {
-                $query->whereBetween('due_date', [now(), now()->addWeek()]);
-            }
-        }
-        
-        // Urutkan: belum selesai dulu, lalu by due date
-        $tasks = $query->orderBy('is_completed', 'asc')
-                       ->orderBy('due_date', 'asc')
-                       ->get();
-        
-        return view('tasks.index', compact('list', 'tasks'));
-    }
-    
-    /**
-     * SRS-006: Toggle status selesai/belum selesai
-     */
-    public function toggle(Task $task)
-    {
-        $this->authorizeAccess($task->list);
-        
-        // Toggle status
-        $task->is_completed = !$task->is_completed;
-        $task->completed_at = $task->is_completed ? now() : null;
-        $task->save();
-        
-        // Hitung progress baru (untuk SRS-007)
-        $list = $task->list;
-        $progress = $this->calculateProgress($list);
-        
-        // Jika request via AJAX, return JSON
-        if (request()->expectsJson()) {
-            return response()->json([
-                'success' => true,
-                'is_completed' => $task->is_completed,
-                'progress' => $progress,
-                'message' => $task->is_completed 
-                    ? 'Tugas ditandai selesai!' 
-                    : 'Tugas dikembalikan ke belum selesai',
-            ]);
-        }
-        
-        return back()->with('success', 'Status tugas diperbarui!');
-    }
-    
-    /**
-     * SRS-007: Hitung progress list
-     * Rumus: (Jumlah Selesai / Total Tugas) * 100
-     */
-    private function calculateProgress(TaskList $list): array
-    {
-        $total = $list->tasks()->count();
-        $completed = $list->tasks()->where('is_completed', true)->count();
-        
-        $percentage = $total > 0 
-            ? round(($completed / $total) * 100, 1) 
-            : 0;
-        
-        return [
-            'total' => $total,
-            'completed' => $completed,
-            'pending' => $total - $completed,
-            'percentage' => $percentage,
-        ];
-    }
-    
-    /**
-     * Cek apakah user punya akses ke list
-     */
-    private function authorizeAccess(TaskList $list): void
-    {
-        $userId = auth()->id();
-        $hasAccess = $list->user_id === $userId 
-            || $list->collaborators()->where('user_id', $userId)->exists();
-        
-        if (!$hasAccess) {
-            abort(403, 'Anda tidak punya akses ke daftar ini.');
-        }
-    }
-}
-use Illuminate\Http\Request;
 
-class TaskController
-{
-    public function index()
-    {
-        $tasks = Task::orderBy('due_date', 'asc')->get();
-        return view('tasks.index', compact('tasks'));
+        // SRS-006: filter tenggat waktu
+        match ($request->input('due')) {
+            'overdue' => $query->whereNotNull('due_date')
+                ->where('due_date', '<', now())
+                ->where('is_completed', false),
+            'today' => $query->whereDate('due_date', today()),
+            'week' => $query->whereBetween('due_date', [now(), now()->addWeek()]),
+            default => null,
+        };
+
+        $tasks = $query
+            ->orderBy('is_completed')
+            ->orderByRaw('due_date IS NULL, due_date ASC')
+            ->get();
+
+        // SRS-007: progres selalu dihitung dari seluruh tugas, bukan hasil filter.
+        $progress = $taskList->progress();
+
+        return view('lists.show', compact('taskList', 'tasks', 'progress'));
     }
 
-    public function store(Request $request)
+    /** SRS-002 */
+    public function update(TaskListRequest $request, TaskList $taskList): RedirectResponse
     {
+        $this->authorize('update', $taskList);
+
+        $taskList->update($request->validated());
+
+        return back()->with('success', 'Daftar berhasil diperbarui.');
+    }
+
+    /** SRS-002: menghapus daftar beserta seluruh isinya (cascade). */
+    public function destroy(TaskList $taskList): RedirectResponse
+    {
+        $this->authorize('delete', $taskList);
+
+        $taskList->delete();
+
+        return redirect()
+            ->route('lists.index')
+            ->with('success', 'Daftar beserta seluruh tugasnya berhasil dihapus.');
+    }
+
+    /** SRS-003: menambah collaborator berdasarkan email. */
+    public function addMember(Request $request, TaskList $taskList): RedirectResponse
+    {
+        $this->authorize('manageMembers', $taskList);
+
         $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'priority' => 'required|in:Low,Medium,High',
-            'due_date' => 'required|date',
+            'email' => ['required', 'email'],
         ]);
 
-        Task::create([
-            'title' => $request->title,
-            'description' => $request->description,
-            'priority' => $request->priority,
-            'due_date' => $request->due_date,
-        ]);
+        $user = User::where('email', $request->email)->first();
 
-        return redirect()->back()->with('success', 'Tugas berhasil ditambahkan!');
+        if (! $user) {
+            return back()->with('error', 'Pengguna dengan email tersebut tidak ditemukan.');
+        }
+
+        if ($user->id === $taskList->owner_id) {
+            return back()->with('error', 'Pengguna tersebut adalah Owner daftar ini.');
+        }
+
+        if ($taskList->collaborators()->whereKey($user->id)->exists()) {
+            return back()->with('error', 'Pengguna tersebut sudah menjadi collaborator.');
+        }
+
+        $taskList->collaborators()->attach($user->id);
+
+        return back()->with('success', "{$user->name} berhasil ditambahkan sebagai collaborator.");
     }
 
-    public function destroy(Task $task)
+    /** SRS-003 */
+    public function removeMember(TaskList $taskList, User $user): RedirectResponse
     {
-        $task->delete();
-        return redirect()->back()->with('success', 'Tugas berhasil dihapus!');
-    }
+        $this->authorize('manageMembers', $taskList);
 
-    public function edit(Task $task)
-    {
-        return response()->json($task);
-    }
+        $taskList->collaborators()->detach($user->id);
 
-    public function update(Request $request, Task $task)
-    {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'priority' => 'required|in:Low,Medium,High',
-            'due_date' => 'required|date',
-        ]);
-
-        $task->update([
-            'title' => $request->title,
-            'description' => $request->description,
-            'priority' => $request->priority,
-            'due_date' => $request->due_date,
-        ]);
-
-        return redirect()->route('tasks.index')->with('success', 'Tugas berhasil diperbarui!');
+        return back()->with('success', 'Akses collaborator berhasil dicabut.');
     }
 }
