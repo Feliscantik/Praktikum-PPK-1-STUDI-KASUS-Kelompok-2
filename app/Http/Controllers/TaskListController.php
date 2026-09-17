@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\TaskList;
+use App\Models\Task;
 use Illuminate\Http\Request;
 use App\Models\ListMember;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class TaskListController extends Controller
 {
@@ -26,6 +28,7 @@ class TaskListController extends Controller
     }
 
     // Menyimpan list baru
+    // SRS-008: pembuatan daftar (insert daftar + assign owner) dalam 1 transaksi.
     public function store(Request $request)
     {
         $request->validate([
@@ -33,11 +36,24 @@ class TaskListController extends Controller
             'description' => 'nullable|string',
         ]);
 
-        TaskList::create([
-            'owner_id' => auth()->id(),
-            'name' => $request->name,
-            'description' => $request->description,
-        ]);
+        try {
+            DB::transaction(function () use ($request) {
+                // insert daftar sekaligus assign owner (owner_id) dalam 1 query,
+                // masih di dalam transaksi yang sama
+                TaskList::create([
+                    'owner_id' => auth()->id(),
+                    'name' => $request->name,
+                    'description' => $request->description,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            // rollback otomatis oleh DB::transaction, state DB tidak berubah
+            return back()
+                ->withInput()
+                ->with('error', 'Gagal membuat daftar. Tidak ada perubahan yang disimpan, silakan coba lagi.');
+        }
 
         return redirect()
             ->route('lists.index')
@@ -77,13 +93,35 @@ class TaskListController extends Controller
     }
 
     // Hapus list
+    // SRS-008: penghapusan daftar (hapus tugas -> hapus keanggotaan -> hapus daftar)
+    // dalam 1 transaksi. Kalau salah satu langkah gagal, semua di-rollback:
+    // tidak boleh ada tugas tanpa daftar, atau daftar "setengah terhapus".
     public function destroy(TaskList $taskList)
     {
         if ($taskList->owner_id !== auth()->id()) {
             abort(403);
         }
 
-        $taskList->delete();
+        try {
+            DB::transaction(function () use ($taskList) {
+                // 1. hapus tugas-tugas dalam daftar ini
+                Task::where('task_list_id', $taskList->id)->delete();
+
+                // 2. hapus keanggotaan/collaborator daftar ini
+                ListMember::where('task_list_id', $taskList->id)->delete();
+
+                // 3. baru hapus daftarnya sendiri
+                $taskList->delete();
+            });
+        } catch (\Throwable $e) {
+            report($e);
+
+            // rollback otomatis, tidak ada tugas/keanggotaan/daftar yang berubah
+            return back()->with(
+                'error',
+                'Gagal menghapus daftar. Tidak ada perubahan yang disimpan, silakan coba lagi.'
+            );
+        }
 
         return redirect()
             ->route('lists.index')
@@ -92,7 +130,6 @@ class TaskListController extends Controller
 
     public function addMember(Request $request, TaskList $taskList)
     {
-        // Hanya Owner yang boleh menambahkan collaborator
         if ($taskList->owner_id !== auth()->id()) {
             abort(403);
         }
@@ -101,33 +138,26 @@ class TaskListController extends Controller
             'email' => 'required|email',
         ]);
 
-        // Cari user berdasarkan email
         $user = User::where('email', $request->email)->first();
 
         if (!$user) {
             return back()->with('error', 'User tidak ditemukan.');
         }
 
-        // Owner tidak perlu ditambahkan sebagai collaborator
         if ($user->id === $taskList->owner_id) {
             return back()->with('error', 'User tersebut adalah Owner list.');
         }
 
-        // Tambahkan collaborator
         ListMember::firstOrCreate([
             'task_list_id' => $taskList->id,
             'user_id' => $user->id,
         ]);
 
-        return back()->with(
-            'success',
-            'Collaborator berhasil ditambahkan.'
-        );
+        return back()->with('success', 'Collaborator berhasil ditambahkan.');
     }
 
     public function removeMember(TaskList $taskList, User $user)
     {
-        // Hanya Owner yang boleh menghapus collaborator
         if ($taskList->owner_id !== auth()->id()) {
             abort(403);
         }
@@ -136,9 +166,6 @@ class TaskListController extends Controller
             ->where('user_id', $user->id)
             ->delete();
 
-        return back()->with(
-            'success',
-            'Collaborator berhasil dihapus.'
-        );
+        return back()->with('success', 'Collaborator berhasil dihapus.');
     }
 }

@@ -58,4 +58,11 @@ class TaskList extends Model
             },
         ];
     }
+
+    // SRS-008: relasi ke tugas-tugas dalam daftar ini
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class);
+    }
+}
 }

@@ -1,45 +1,35 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>JARA - Lists</title>
-</head>
-<body>
+@extends('layouts.app')
 
-<h1>JARA - Daftar List</h1>
+@section('title', 'Daftar Tugas')
 
-<a href="{{ route('lists.create') }}">
-    + Buat List Baru
-</a>
+@section('content')
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0">Daftar Tugas</h3>
+    <a href="{{ route('lists.create') }}" class="btn btn-primary">+ Buat Daftar Baru</a>
+</div>
 
-@if(session('success'))
-    <p>{{ session('success') }}</p>
-@endif
+<h5 class="text-muted">Milik Saya</h5>
+<div class="row g-3 mb-4">
+    @forelse ($ownedLists as $list)
+        <div class="col-md-4">
+            @include('lists.partials.card', ['list' => $list, 'badge' => 'Owner'])
+        </div>
+    @empty
+        <div class="col-12"><p class="text-muted">Belum ada daftar.</p></div>
+    @endforelse
+</div>
 
-<hr>
-
-@forelse($lists as $list)
-
-    <h2>
-        <a href="{{ route('lists.show', $list) }}">
-            {{ $list->name }}
-        </a>
-    </h2>
-
-    <p>
-        {{ $list->description }}
-    </p>
-
-    <p>
-        Owner: {{ auth()->user()->name }}
-    </p>
-
-    <hr>
-
-@empty
-
-    <p>Belum ada list.</p>
-
-@endforelse
-
-</body>
-</html>
+<h5 class="text-muted">Dibagikan Kepada Saya</h5>
+<div class="row g-3">
+    @forelse ($sharedLists as $list)
+        <div class="col-md-4">
+            @include('lists.partials.card', [
+                'list' => $list,
+                'badge' => 'Collaborator · ' . $list->owner->name,
+            ])
+        </div>
+    @empty
+        <div class="col-12"><p class="text-muted">Belum ada daftar yang dibagikan kepada Anda.</p></div>
+    @endforelse
+</div>
+@endsection
