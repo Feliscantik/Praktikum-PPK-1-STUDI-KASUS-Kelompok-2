@@ -104,6 +104,8 @@
                     {{-- SRS-002 & SRS-003: Pesan konfirmasi mencakup seluruh tugas dan akses collaborator --}}
                     <form action="{{ route('lists.destroy', $taskList) }}" method="POST"
                           onsubmit="return confirm('Hapus daftar ini beserta SELURUH tugas dan keanggotaan collaborator terkait?')">
+                    <form action="{{ route('lists.destroy', $taskList) }}" method="POST"
+                          onsubmit="return confirm('Hapus daftar ini beserta SELURUH tugas di dalamnya?')">
                         @csrf
                         @method('DELETE')
                         <button class="btn btn-sm btn-outline-danger w-100">Hapus Daftar</button>
@@ -168,4 +170,5 @@ document.querySelectorAll('.toggle-form').forEach((form) => {
     });
 });
 </script>
+@endpush
 @endpush

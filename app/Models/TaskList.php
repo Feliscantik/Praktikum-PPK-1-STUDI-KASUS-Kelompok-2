@@ -72,5 +72,40 @@ class TaskList extends Model
                 default => 'danger',
             },
         ];
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class);
     }
+
+    public function isAccessibleBy(User $user): bool
+    {
+        return $this->owner_id === $user->id
+            || $this->collaborators()->whereKey($user->id)->exists();
+    }
+    public function progress(): array
+    {
+        $total = $this->tasks()->count();
+        $completed = $this->tasks()->where('is_completed', true)->count();
+        $percentage = $total > 0 ? (int) round(($completed / $total) * 100) : 0;
+
+        return [
+            'total' => $total,
+            'completed' => $completed,
+            'pending' => $total - $completed,
+            'percentage' => $percentage,
+            'color' => match (true) {
+                $percentage >= 80 => 'success',
+                $percentage >= 50 => 'info',
+                $percentage >= 25 => 'warning',
+                default => 'danger',
+            },
+        ];
+    }
+
+    // SRS-008: relasi ke tugas-tugas dalam daftar ini
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class);
+    }
+}
 }
