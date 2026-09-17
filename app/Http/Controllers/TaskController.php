@@ -10,31 +10,25 @@ class TaskController extends Controller
 {
     /**
      * SRS-006: Menampilkan tugas dengan filter
-     * Filter berdasarkan: status, priority, due_date
      */
     public function index(Request $request, TaskList $list)
     {
-        // Pastikan user punya akses ke list ini
         $this->authorizeAccess($list);
         
         $query = $list->tasks()->with('user');
-        
-        // Filter berdasarkan STATUS (SRS-006)
+
         if ($request->filled('status')) {
             if ($request->status === 'completed') {
                 $query->where('is_completed', true);
             } elseif ($request->status === 'pending') {
                 $query->where('is_completed', false);
             }
-            // 'all' = tidak perlu filter
         }
-        
-        // Filter berdasarkan PRIORITY (SRS-006)
+
         if ($request->filled('priority')) {
             $query->where('priority', $request->priority);
         }
-        
-        // Filter berdasarkan DUE DATE (SRS-006)
+
         if ($request->filled('due')) {
             if ($request->due === 'overdue') {
                 $query->where('due_date', '<', now())
@@ -45,8 +39,7 @@ class TaskController extends Controller
                 $query->whereBetween('due_date', [now(), now()->addWeek()]);
             }
         }
-        
-        // Urutkan: belum selesai dulu, lalu by due date
+
         $tasks = $query->orderBy('is_completed', 'asc')
                        ->orderBy('due_date', 'asc')
                        ->get();
@@ -55,22 +48,78 @@ class TaskController extends Controller
     }
     
     /**
+     * SRS-004 & SRS-010: Menyimpan tugas baru dengan validasi input
+     */
+    public function store(Request $request, TaskList $list)
+    {
+        $this->authorizeAccess($list);
+
+        // Validasi input (SRS-010) untuk mencegah data kosong/tidak valid
+        $validated = $request->validate([
+            'title'       => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'priority'    => 'required|in:low,medium,high',
+            'due_date'    => 'nullable|date',
+        ]);
+
+        // Simpan data aman menggunakan relasi
+        $list->tasks()->create([
+            'title'       => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'priority'    => $validated['priority'],
+            'due_date'    => $validated['due_date'] ?? null,
+            'user_id'     => auth()->id(),
+        ]);
+
+        return back()->with('success', 'Tugas berhasil ditambahkan!');
+    }
+
+    /**
+     * SRS-004 & SRS-010: Memperbarui tugas dengan validasi input
+     */
+    public function update(Request $request, Task $task)
+    {
+        $this->authorizeAccess($task->list);
+
+        // Validasi input (SRS-010)
+        $validated = $request->validate([
+            'title'       => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'priority'    => 'required|in:low,medium,high',
+            'due_date'    => 'nullable|date',
+        ]);
+
+        $task->update($validated);
+
+        return back()->with('success', 'Tugas berhasil diperbarui!');
+    }
+
+    /**
+     * Menghapus tugas
+     */
+    public function destroy(Task $task)
+    {
+        $this->authorizeAccess($task->list);
+        
+        $task->delete();
+
+        return back()->with('success', 'Tugas berhasil dihapus!');
+    }
+    
+    /**
      * SRS-006: Toggle status selesai/belum selesai
      */
     public function toggle(Task $task)
     {
         $this->authorizeAccess($task->list);
-        
-        // Toggle status
+
         $task->is_completed = !$task->is_completed;
         $task->completed_at = $task->is_completed ? now() : null;
         $task->save();
-        
-        // Hitung progress baru (untuk SRS-007)
+
         $list = $task->list;
         $progress = $this->calculateProgress($list);
-        
-        // Jika request via AJAX, return JSON
+
         if (request()->expectsJson()) {
             return response()->json([
                 'success' => true,
@@ -87,7 +136,6 @@ class TaskController extends Controller
     
     /**
      * SRS-007: Hitung progress list
-     * Rumus: (Jumlah Selesai / Total Tugas) * 100
      */
     private function calculateProgress(TaskList $list): array
     {
