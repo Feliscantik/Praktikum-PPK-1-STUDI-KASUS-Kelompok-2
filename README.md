@@ -6,19 +6,21 @@ Aplikasi web untuk mengelola tugas pribadi maupun tim secara efisien. JARA memun
 
 Sebagai pengguna (individu maupun tim), saya ingin mengelola tugas dan berkolaborasi dalam daftar proyek secara interaktif, sehingga saya dapat memantau progres pekerjaan, menetapkan prioritas, dan menyelesaikan tugas tepat waktu bersama tim.
 
-## Daftar SRS
+## Daftar SRS (Diperbarui dengan SRS Tambahan)
 
 | Kode | Deskripsi | Acceptance Criteria |
 |------|-----------|---------------------|
 | *SRS-001* | Manajemen & Otentikasi Pengguna oleh Admin | - Admin dapat menambah akun pengguna baru dengan input nama, email, dan password.<br> <br>- Admin dapat menghapus akun pengguna dari sistem.<br><br>- Pengguna yang telah ditambahkan dapat melakukan login.<br><br>- Akun yang dihapus oleh Admin langsung tidak bisa lagi melakukan login ke sistem. |
-| *SRS-002* | Pengelolaan Proyek / Daftar Tugas (List/Project Management) | - Pengguna dapat membuat daftar tugas (list/project) baru dan bertindak sebagai List Owner.<br><br>- Owner dapat mengubah nama/deskripsi daftar serta menghapus daftar beserta seluruh isinya.<br><br>- Halaman daftar menampilkan daftar anggota/kolaborator yang terhubung. |
+| *SRS-002* | Pengelolaan Proyek / Daftar Tugas (List/Project Management) | - Pengguna dapat membuat daftar tugas (list/project) baru dan bertindak sebagai List Owner.<br><br>- Owner dapat mengubah nama/deskripsi daftar serta menghapus daftar beserta seluruh isinya.<br><br>- Halaman daftar menampilkan daftar anggota/kolaborator yang terhubung.<br><br>- **[Tambahan]** Penghapusan daftar wajib menghapus seluruh tugas di dalamnya DAN seluruh baris keanggotaan (*collaborator*) terkait, bukan hanya baris daftar itu sendiri. |
 | *SRS-003* | Kolaborasi & Penambahan Anggota ke Dalam Daftar (Collaborator Invite) | - Owner daftar dapat menambahkan pengguna lain ke dalam daftar miliknya berdasarkan nama/email.<br><br>- Pengguna yang ditambahkan (Collaborator) dapat melihat dan mengakses daftar tersebut di dashboard mereka.<br><br>- Owner dapat menghapus akses Collaborator dari daftar tugas kapan saja. |
 | *SRS-004* | Pembuatan & Pengelolaan Item Tugas (Task Item) | - Owner dan Collaborator dapat membuat item tugas baru di dalam daftar.<br><br>- Setiap tugas wajib memiliki judul dan deskripsi opsional.<br><br>- Tugas dapat diperbarui detailnya atau dihapus oleh Owner dan Collaborator. |
 | *SRS-005* | Pengaturan Prioritas & Tenggat Waktu (Priority & Due Date) | - Pengguna dapat menentukan prioritas tugas (opsi: Tinggi / High, Sedang / Medium, Rendah / Low).<br><br>- Pengguna dapat menentukan tenggat waktu penyelesaian (Due Date & Time).<br><br>- Tugas yang mendekati atau melewati tenggat waktu menampilkan penanda khusus (indicator highlight). |
 | *SRS-006* | Penyelesaian Tugas & Penyaringan (Task Completion & Filter) | - Pengguna dapat menandai tugas sebagai "Selesai" (Completed) atau mengembalikannya ke "Belum Selesai".<br><br>- Tugas yang selesai diberi penanda visual (misal: dicoret atau centang).<br><br>- Tersedia fitur penyaringan (filter) untuk menampilkan tugas berdasarkan status (Semua/Selesai/Belum), Prioritas, dan Tenggat Waktu. |
 | *SRS-007* | Pemantauan Progres Penyelesaian Tugas (Progress Tracking) | - Setiap daftar menampilkan indikator progres (misal: progress bar atau persentase % real-time).<br><br>- Persentase dihitung secara otomatis: (Jumlah Tugas Selesai / Total Tugas) * 100%.<br><br>- Grafik/persentase progres langsung diperbarui begitu ada tugas yang ditandai selesai atau ditambahkan. |
+| *SRS-008* | **[Tambahan]** Integritas Transaksi pada Pembuatan & Penghapusan Daftar | - Pembuatan daftar (*insert* daftar + *assign* owner) dibungkus dalam satu transaksi database tambahan.<br><br>- Penghapusan daftar (hapus tugas → hapus keanggotaan → hapus daftar) dibungkus dalam satu transaksi tambahan.<br><br>- Jika salah satu langkah gagal (mis. *constraint error*, koneksi terputus), seluruh perubahan di-*rollback* — tidak boleh ada daftar tanpa *owner*, tugas tanpa daftar, atau daftar "setengah terhapus".<br><br>- Kegagalan transaksi tambahan ini mengembalikan pesan *error* yang jelas ke pengguna, tanpa mengubah *state* apa pun di database. |
+| *SRS-009* | **[Tambahan]** Kontrol Otorisasi Lintas Sistem (Access Control) | - Setiap *request* ke *endpoint* yang membutuhkan kepemilikan/akses (*list, task, member, admin*) diverifikasi terhadap peran & relasi pengguna (*Owner/Collaborator/Admin*) sebelum diproses sebagai pemeriksaan tambahan.<br><br>- Pengguna yang bukan *Owner* ditolak tambahan saat mencoba mengubah/menghapus daftar atau mengelola *collaborator* (`403 Forbidden`).<br><br>- Pengguna yang bukan *Owner/Collaborator* dari suatu daftar ditolak tambahan saat mencoba melihat atau memanipulasi tugas di daftar tersebut.<br><br>- Pengguna non-admin ditolak tambahan saat mengakses *endpoint* manajemen akun (SRS-001).<br><br>- Percobaan akses tidak sah tambahan tidak membocorkan informasi sensitif (mis. tidak mengonfirmasi keberadaan *resource* ke pihak yang tidak berhak — pertimbangkan `403/404` sesuai kebijakan). |
+| *SRS-010* | **[Tambahan]** Validasi Input & Pencegahan SQL Injection | - Seluruh input tambahan dari *form/API* (nama, email, *password*, judul tugas, deskripsi, prioritas, *due date*, dsb.) divalidasi tipe, panjang, dan formatnya sebelum diproses (*server-side*, tidak cukup validasi *client-side*).<br><br>- Seluruh *query* tambahan ke database menggunakan *query* terparameterisasi/*prepared statement* (mis. Eloquent ORM atau *query builder* dengan *binding*) — tidak ada *raw SQL* yang menyisipkan input pengguna langsung ke string *query*.<br><br>- Input tambahan yang tidak valid ditolak dengan pesan *error* yang jelas, bukan diteruskan diam-diam atau menyebabkan *error* sistem.<br><br>- Percobaan *payload SQL injection* tambahan pada seluruh *field* input (nama, email, judul tugas, *filter*, dsb.) tidak mengubah perilaku *query* maupun membocorkan data lain. |
 
-## Menjalankan Proyek
 ## Menjalankan Proyek
 
 Pastikan telah menginstal **PHP** (>= 8.2), **Composer**, **Node.js**, dan server database **MySQL/XAMPP** di komputer Anda.
@@ -47,6 +49,7 @@ php artisan migrate --seed
 # 6. Jalankan server lokal
 php artisan serve
 npm run dev
+
 
 jara-app/
 ├── app/

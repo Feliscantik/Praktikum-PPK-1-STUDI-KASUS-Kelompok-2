@@ -14,6 +14,7 @@ class TaskListController extends Controller
 {
     /**
      * SRS-002 & SRS-003: daftar milik sendiri + daftar yang dibagikan.
+     * SRS-006: Menampilkan tugas dengan filter
      */
     public function index(Request $request): View
     {
@@ -48,6 +49,131 @@ class TaskListController extends Controller
 
     /** SRS-002: pembuat daftar otomatis menjadi List Owner. */
     public function store(TaskListRequest $request): RedirectResponse
+        $this->authorizeAccess($list);
+        
+        $query = $list->tasks()->with('user');
+
+        if ($request->filled('status')) {
+            if ($request->status === 'completed') {
+                $query->where('is_completed', true);
+            } elseif ($request->status === 'pending') {
+                $query->where('is_completed', false);
+            }
+        }
+
+        if ($request->filled('priority')) {
+            $query->where('priority', $request->priority);
+        }
+
+        if ($request->filled('due')) {
+            if ($request->due === 'overdue') {
+                $query->where('due_date', '<', now())
+                      ->where('is_completed', false);
+            } elseif ($request->due === 'today') {
+                $query->whereDate('due_date', today());
+            } elseif ($request->due === 'week') {
+                $query->whereBetween('due_date', [now(), now()->addWeek()]);
+            }
+        }
+
+        $tasks = $query->orderBy('is_completed', 'asc')
+                       ->orderBy('due_date', 'asc')
+                       ->get();
+        
+        return view('tasks.index', compact('list', 'tasks'));
+    }
+    
+    /**
+     * SRS-004 & SRS-010: Menyimpan tugas baru dengan validasi input
+     */
+    public function store(Request $request, TaskList $list)
+    {
+        $this->authorizeAccess($list);
+
+        // Validasi input (SRS-010) untuk mencegah data kosong/tidak valid
+        $validated = $request->validate([
+            'title'       => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'priority'    => 'required|in:low,medium,high',
+            'due_date'    => 'nullable|date',
+        ]);
+
+        // Simpan data aman menggunakan relasi
+        $list->tasks()->create([
+            'title'       => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'priority'    => $validated['priority'],
+            'due_date'    => $validated['due_date'] ?? null,
+            'user_id'     => auth()->id(),
+        ]);
+
+        return back()->with('success', 'Tugas berhasil ditambahkan!');
+    }
+
+    /**
+     * SRS-004 & SRS-010: Memperbarui tugas dengan validasi input
+     */
+    public function update(Request $request, Task $task)
+    {
+        $this->authorizeAccess($task->list);
+
+        // Validasi input (SRS-010)
+        $validated = $request->validate([
+            'title'       => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'priority'    => 'required|in:low,medium,high',
+            'due_date'    => 'nullable|date',
+        ]);
+
+        $task->update($validated);
+
+        return back()->with('success', 'Tugas berhasil diperbarui!');
+    }
+
+    /**
+     * Menghapus tugas
+     */
+    public function destroy(Task $task)
+    {
+        $this->authorizeAccess($task->list);
+        
+        $task->delete();
+
+        return back()->with('success', 'Tugas berhasil dihapus!');
+    }
+    
+    /**
+     * SRS-006: Toggle status selesai/belum selesai
+     */
+    public function toggle(Task $task)
+    {
+        $this->authorizeAccess($task->list);
+
+        $task->is_completed = !$task->is_completed;
+        $task->completed_at = $task->is_completed ? now() : null;
+        $task->save();
+
+        $list = $task->list;
+        $progress = $this->calculateProgress($list);
+
+        if (request()->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'is_completed' => $task->is_completed,
+                'progress' => $progress,
+                'message' => $task->is_completed 
+                    ? 'Tugas ditandai selesai!' 
+                    : 'Tugas dikembalikan ke belum selesai',
+            ]);
+        }
+        
+        return back()->with('success', 'Status tugas diperbarui!');
+    }
+    
+    /**
+     * SRS-007: Hitung progress list
+     */
+    private function calculateProgress(TaskList $list): array
     {
         $list = TaskList::create([
             'owner_id' => $request->user()->id,
@@ -160,5 +286,7 @@ class TaskListController extends Controller
         $taskList->collaborators()->detach($user->id);
 
         return back()->with('success', 'Akses collaborator berhasil dicabut.');
+    }
+}
     }
 }
