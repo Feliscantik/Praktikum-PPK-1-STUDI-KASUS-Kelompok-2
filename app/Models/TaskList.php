@@ -23,4 +23,10 @@ class TaskList extends Model
     {
         return $this->hasMany(ListMember::class);
     }
+
+    // SRS-008: relasi ke tugas-tugas dalam daftar ini
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(Task::class);
+    }
 }

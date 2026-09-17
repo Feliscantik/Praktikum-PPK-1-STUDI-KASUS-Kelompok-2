@@ -1,31 +1,35 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Buat List</title>
-</head>
-<body>
+@extends('layouts.app')
 
-<h1>Buat List Baru</h1>
+@section('title', 'Buat Daftar')
 
-<form action="{{ route('lists.store') }}" method="POST">
-    @csrf
+@section('content')
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title mb-3">Buat Daftar Baru</h5>
 
-    <label>Nama List</label>
-    <br>
-    <input type="text" name="name" required>
-
-    <br><br>
-
-    <label>Deskripsi</label>
-    <br>
-    <textarea name="description"></textarea>
-
-    <br><br>
-
-    <button type="submit">
-        Buat List
-    </button>
-</form>
-
-</body>
-</html>
+                <form action="{{ route('lists.store') }}" method="POST">
+                    @csrf
+                    <div class="mb-3">
+                        <label class="form-label">Nama Daftar</label>
+                        <input type="text" name="name" class="form-control @error('name') is-invalid @enderror"
+                               value="{{ old('name') }}" required>
+                        @error('name') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Deskripsi <span class="text-muted">(opsional)</span></label>
+                        <textarea name="description" rows="3"
+                                  class="form-control @error('description') is-invalid @enderror">{{ old('description') }}</textarea>
+                        @error('description') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Buat Daftar</button>
+                        <a href="{{ route('lists.index') }}" class="btn btn-outline-secondary">Batal</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection

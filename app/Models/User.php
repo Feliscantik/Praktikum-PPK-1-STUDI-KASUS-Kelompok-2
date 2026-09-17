@@ -2,26 +2,29 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role'])]
-#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
+    /** SRS-001: kolom yang boleh diisi Admin saat membuat akun. */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'role',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -30,18 +33,28 @@ class User extends Authenticatable
         ];
     }
 
-    public function ownedLists()
+    /** SRS-001 */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    /** SRS-002: daftar yang dimiliki user ini. */
+    public function ownedLists(): HasMany
     {
         return $this->hasMany(TaskList::class, 'owner_id');
     }
 
-    public function listMemberships()
+    /** SRS-003: daftar milik orang lain yang dibagikan ke user ini. */
+    public function sharedLists(): BelongsToMany
     {
-        return $this->hasMany(ListMember::class);
+        return $this->belongsToMany(TaskList::class, 'list_members')
+            ->withTimestamps();
     }
-}
-    public function isAdmin(): bool
+
+    /** SRS-004 */
+    public function tasks(): HasMany
     {
-        return $this->role === 'admin';
+        return $this->hasMany(Task::class);
     }
 }
