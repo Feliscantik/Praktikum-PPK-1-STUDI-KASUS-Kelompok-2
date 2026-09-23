@@ -10,8 +10,6 @@ class Task extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'task_list_id',
     public const PRIORITIES = ['low', 'medium', 'high'];
 
     protected $fillable = [
@@ -25,10 +23,6 @@ class Task extends Model
         'completed_at',
     ];
 
-    // SRS-008: relasi tugas ke daftar tempatnya berada
-    public function taskList(): BelongsTo
-    {
-        return $this->belongsTo(TaskList::class);
     protected function casts(): array
     {
         return [
@@ -36,6 +30,12 @@ class Task extends Model
             'completed_at' => 'datetime',
             'is_completed' => 'boolean',
         ];
+    }
+
+    // SRS-008: relasi tugas ke daftar tempatnya berada
+    public function taskList(): BelongsTo
+    {
+        return $this->belongsTo(TaskList::class);
     }
 
     public function list(): BelongsTo

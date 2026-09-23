@@ -13,12 +13,12 @@ class DemoDataSeeder extends Seeder
     {
         $budi = User::firstOrCreate(
             ['email' => 'budi@jara.test'],
-            ['name' => 'Budi', 'password' => 'password123', 'role' => 'user']
+            ['name' => 'Budi', 'password' => bcrypt('password123'), 'role' => 'user']
         );
 
         $sari = User::firstOrCreate(
             ['email' => 'sari@jara.test'],
-            ['name' => 'Sari', 'password' => 'password123', 'role' => 'user']
+            ['name' => 'Sari', 'password' => bcrypt('password123'), 'role' => 'user']
         );
 
         if ($budi->ownedLists()->exists()) {
