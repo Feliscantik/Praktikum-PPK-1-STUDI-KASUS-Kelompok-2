@@ -72,18 +72,19 @@ class TaskListController extends Controller
     }
 
     /** SRS-002 & SRS-007 */
-    public function show(TaskList $taskList): View
-    {
-        $this->authorize('view', $taskList);
+public function show(TaskList $taskList): View
+{
+    $this->authorize('view', $taskList);
 
-        $taskList->load(['tasks' => function ($q) {
-            $q->latest();
-        }, 'collaborators', 'owner']);
+    $tasks = $taskList->tasks()
+        ->with('taskList')
+        ->latest()
+        ->get();
 
-        $progress = $taskList->progress();
+    $progress = $taskList->progress();
 
-        return view('lists.show', compact('taskList', 'progress'));
-    }
+    return view('lists.show', compact('taskList', 'tasks', 'progress'));
+}
 
     /** SRS-002 */
     public function update(TaskListRequest $request, TaskList $taskList): RedirectResponse
